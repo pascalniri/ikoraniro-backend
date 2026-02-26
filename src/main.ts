@@ -5,7 +5,7 @@ import * as express from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import helmet from 'helmet';
-import * as compression from 'compression';
+import compression from 'compression';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
