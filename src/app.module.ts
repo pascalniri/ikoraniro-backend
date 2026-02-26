@@ -42,6 +42,10 @@ import { JobDeadlineRemindersModule } from './job-deadline-reminders/job-deadlin
         database: process.env.DATABASE_NAME || 'ikoraniro',
         autoLoadEntities: true,
         synchronize: false,
+        ssl:
+          process.env.DATABASE_SSL === 'true'
+            ? { rejectUnauthorized: false }
+            : false,
       }),
     }),
     UsersModule,
