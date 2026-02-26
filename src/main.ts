@@ -16,8 +16,19 @@ async function bootstrap() {
   app.use(compression());
   app.enableCors({
     origin: process.env.FRONTEND_URL
-      ? [process.env.FRONTEND_URL, 'https://ikoraniro.vercel.app']
-      : ['http://localhost:3000', 'https://ikoraniro.vercel.app'],
+      ? [
+          process.env.FRONTEND_URL,
+          'https://ikoraniro.vercel.app',
+          'http://localhost:3000',
+          'http://localhost:3001',
+          'http://localhost:3002',
+        ]
+      : [
+          'http://localhost:3000',
+          'http://localhost:3001',
+          'http://localhost:3002',
+          'https://ikoraniro.vercel.app',
+        ],
     credentials: true,
   });
 
