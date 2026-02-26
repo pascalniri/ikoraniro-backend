@@ -9,6 +9,9 @@ import { Interview, InterviewStatus } from './interview.entity';
 import { Application } from './application.entity';
 import { ScheduleInterviewDto, UpdateInterviewDto } from './dto/interview.dto';
 import { User } from '../users/user.entity';
+import { OrganizationsService } from '../organizations/organizations.service';
+import { OrganizationRole } from '../organizations/organization-member.entity';
+import { AuditLogsService } from '../organizations/audit-logs.service';
 
 @Injectable()
 export class InterviewsService {
@@ -17,6 +20,8 @@ export class InterviewsService {
     private readonly interviewRepository: Repository<Interview>,
     @InjectRepository(Application)
     private readonly applicationRepository: Repository<Application>,
+    private readonly organizationsService: OrganizationsService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async schedule(
@@ -32,8 +37,28 @@ export class InterviewsService {
       throw new NotFoundException('Application not found');
     }
 
-    // TODO: Verify that the interviewer (user) has permission to manage this job
-    // For now, we allow if they are an interviewer. In a real app, check job.organizationId
+    const job = application.job;
+    if (!job.organizationId) {
+      throw new ForbiddenException(
+        'This job is not associated with an organization',
+      );
+    }
+
+    const isMember = await this.organizationsService.hasRole(
+      interviewer.id,
+      job.organizationId,
+      [
+        OrganizationRole.OWNER,
+        OrganizationRole.ADMIN,
+        OrganizationRole.RECRUITER,
+        OrganizationRole.INTERVIEWER,
+      ],
+    );
+    if (!isMember) {
+      throw new ForbiddenException(
+        'You do not have permission to schedule interviews for this job',
+      );
+    }
 
     const interview = this.interviewRepository.create({
       application,
@@ -45,7 +70,20 @@ export class InterviewsService {
       interviewer,
     });
 
-    return this.interviewRepository.save(interview);
+    const saved = await this.interviewRepository.save(interview);
+
+    await this.auditLogsService.log(
+      job.organizationId,
+      interviewer.id,
+      'INTERVIEW_SCHEDULED',
+      {
+        applicationId: application.id,
+        stage: dto.stage,
+        scheduledAt: dto.scheduledAt,
+      },
+    );
+
+    return saved;
   }
 
   async update(id: string, dto: UpdateInterviewDto): Promise<Interview> {

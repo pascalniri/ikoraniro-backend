@@ -18,6 +18,13 @@ import { Profile } from '../profiles/profile.entity';
 import { SavedSearch } from '../saved-searches/saved-search.entity';
 import { JobDeadlineReminder } from '../job-deadline-reminders/job-deadline-reminder.entity';
 import { SavedJob } from '../saved-jobs/saved-job.entity';
+import { Organization } from '../organizations/organization.entity';
+import {
+  OrganizationMember,
+  OrganizationRole,
+} from '../organizations/organization-member.entity';
+import { OrganizationInvitation } from '../organizations/organization-invitation.entity';
+import { OrganizationAuditLog } from '../organizations/organization-audit-log.entity';
 
 config();
 
@@ -39,6 +46,10 @@ const dataSource = new DataSource({
     SavedSearch,
     JobDeadlineReminder,
     SavedJob,
+    Organization,
+    OrganizationMember,
+    OrganizationInvitation,
+    OrganizationAuditLog,
   ],
   synchronize: false,
   ssl:
@@ -61,10 +72,21 @@ async function seed() {
   if (process.env.CLEAN_SEED === 'true') {
     console.log('🧹 Clearing existing data...');
     // Delete in order to avoid FK constraints
+    const auditLogRepository = dataSource.getRepository(OrganizationAuditLog);
+    const invitationRepository = dataSource.getRepository(
+      OrganizationInvitation,
+    );
+    const organizationRepository = dataSource.getRepository(Organization);
+    const memberRepository = dataSource.getRepository(OrganizationMember);
+
+    await auditLogRepository.createQueryBuilder().delete().execute();
+    await invitationRepository.createQueryBuilder().delete().execute();
     await interviewRepository.createQueryBuilder().delete().execute();
     await statusHistoryRepository.createQueryBuilder().delete().execute();
     await applicationRepository.createQueryBuilder().delete().execute();
     await jobRepository.createQueryBuilder().delete().execute();
+    await memberRepository.createQueryBuilder().delete().execute();
+    await organizationRepository.createQueryBuilder().delete().execute();
     await userRepository.createQueryBuilder().delete().execute();
   }
 
@@ -101,6 +123,26 @@ async function seed() {
   await userRepository.save([employer, applicant]);
   console.log('✅ Users seeded');
 
+  // 1.5 Create Organization
+  const organizationRepository = dataSource.getRepository(Organization);
+  const memberRepository = dataSource.getRepository(OrganizationMember);
+
+  const organization = organizationRepository.create({
+    name: 'Ikoraniro Tech',
+    slug: 'ikoraniro-tech',
+    description: 'The premier recruitment platform for talent in Africa.',
+    website: 'https://ikoraniro.com',
+  });
+  await organizationRepository.save(organization);
+
+  const member = memberRepository.create({
+    organization,
+    user: employer,
+    role: OrganizationRole.OWNER,
+  });
+  await memberRepository.save(member);
+  console.log('✅ Organization & Member seeded');
+
   // 2. Create Jobs
   const jobs = jobRepository.create([
     {
@@ -113,7 +155,7 @@ async function seed() {
       jobType: JobType.FULL_TIME,
       status: JobStatus.PUBLISHED,
       companyName: 'Ikoraniro Tech',
-      organizationId: 'org_123',
+      organization,
     },
     {
       title: 'UI/UX Designer',
@@ -125,7 +167,7 @@ async function seed() {
       jobType: JobType.CONTRACT,
       status: JobStatus.PUBLISHED,
       companyName: 'Ikoraniro Design',
-      organizationId: 'org_123',
+      organization,
     },
   ]);
 

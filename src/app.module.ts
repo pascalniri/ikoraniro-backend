@@ -17,6 +17,7 @@ import { ApplicantModule } from './applicant/applicant.module';
 import { SavedSearchesModule } from './saved-searches/saved-searches.module';
 import { MailModule } from './mail/mail.module';
 import { JobDeadlineRemindersModule } from './job-deadline-reminders/job-deadline-reminders.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { JobDeadlineRemindersModule } from './job-deadline-reminders/job-deadlin
     ApplicantModule,
     SavedSearchesModule,
     JobDeadlineRemindersModule,
+    OrganizationsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],

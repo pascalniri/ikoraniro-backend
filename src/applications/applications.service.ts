@@ -12,6 +12,9 @@ import { CreateApplicationDto } from './dto/create-application.dto';
 import { JobsService } from '../jobs/jobs.service';
 import { ProfilesService } from '../profiles/profiles.service';
 import { UsersService } from '../users/users.service';
+import { OrganizationsService } from '../organizations/organizations.service';
+import { AuditLogsService } from '../organizations/audit-logs.service';
+import { OrganizationRole } from '../organizations/organization-member.entity';
 
 @Injectable()
 export class ApplicationsService {
@@ -23,6 +26,8 @@ export class ApplicationsService {
     private readonly usersService: UsersService,
     private readonly profilesService: ProfilesService,
     private readonly jobsService: JobsService,
+    private readonly auditLogsService: AuditLogsService,
+    private readonly organizationsService: OrganizationsService,
   ) {}
 
   async apply(
@@ -232,8 +237,26 @@ export class ApplicationsService {
     const { status, limit = 20, offset = 0 } = options;
 
     const job = await this.jobsService.findOne(jobId);
-    // TODO: Verify employer ownership of the job
-    // if (job.organizationId !== employerOrgId) throw Forbidden
+    if (!job.organizationId) {
+      throw new ForbiddenException(
+        'This job is not associated with an organization',
+      );
+    }
+
+    const isMember = await this.organizationsService.hasRole(
+      employerId,
+      job.organizationId,
+      [
+        OrganizationRole.OWNER,
+        OrganizationRole.ADMIN,
+        OrganizationRole.RECRUITER,
+      ],
+    );
+    if (!isMember) {
+      throw new ForbiddenException(
+        'You do not have permission to view applicants for this job',
+      );
+    }
 
     const qb = this.applicationRepository
       .createQueryBuilder('a')
@@ -268,7 +291,27 @@ export class ApplicationsService {
       throw new NotFoundException('Application not found');
     }
 
-    // TODO: Verify employer ownership of the job
+    const job = application.job;
+    if (!job.organizationId) {
+      throw new ForbiddenException(
+        'This job is not associated with an organization',
+      );
+    }
+
+    const isMember = await this.organizationsService.hasRole(
+      employerId,
+      job.organizationId,
+      [
+        OrganizationRole.OWNER,
+        OrganizationRole.ADMIN,
+        OrganizationRole.RECRUITER,
+      ],
+    );
+    if (!isMember) {
+      throw new ForbiddenException(
+        'You do not have permission to manage this application',
+      );
+    }
 
     const fromStatus = application.status;
     application.status = status;
@@ -280,6 +323,13 @@ export class ApplicationsService {
       status,
       reason,
       employerId,
+    );
+
+    await this.auditLogsService.log(
+      job.organizationId,
+      employerId,
+      'APPLICATION_STATUS_UPDATED',
+      { applicationId, fromStatus, toStatus: status, jobTitle: job.title },
     );
 
     return saved;

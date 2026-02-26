@@ -8,6 +8,8 @@ import {
 } from 'typeorm';
 import { Application } from '../applications/application.entity';
 import { SavedJob } from '../saved-jobs/saved-job.entity';
+import { Organization } from '../organizations/organization.entity';
+import { ManyToOne, JoinColumn } from 'typeorm';
 
 export enum JobStatus {
   DRAFT = 'DRAFT',
@@ -73,9 +75,13 @@ export class Job {
   @Column({ nullable: true })
   companyName?: string;
 
-  /** Optional org id when job is posted by an organization */
+  /** Link to the organization posting the job */
+  @ManyToOne(() => Organization, (org) => org.jobs, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
+
   @Column({ nullable: true })
-  organizationId?: string;
+  organizationId: string;
 
   @Column({ type: 'jsonb', nullable: true })
   customQuestions?: Record<string, unknown>[];

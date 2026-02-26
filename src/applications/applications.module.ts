@@ -10,6 +10,7 @@ import { UsersModule } from '../users/users.module';
 import { Interview } from './interview.entity';
 import { InterviewsService } from './interviews.service';
 import { InterviewsController } from './interviews.controller';
+import { OrganizationsModule } from '../organizations/organizations.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { InterviewsController } from './interviews.controller';
     JobsModule,
     ProfilesModule,
     UsersModule,
+    OrganizationsModule,
   ],
   providers: [ApplicationsService, InterviewsService],
   controllers: [ApplicationsController, InterviewsController],
