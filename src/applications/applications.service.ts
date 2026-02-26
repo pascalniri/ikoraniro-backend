@@ -32,7 +32,10 @@ export class ApplicationsService {
   ): Promise<Application> {
     const user = await this.usersService.findById(userId);
     const profile = await this.profilesService.getOrCreateForUser(user);
-    const completeness = this.profilesService.completenessPercent(profile, user);
+    const completeness = this.profilesService.completenessPercent(
+      profile,
+      user,
+    );
     if (completeness < 50) {
       throw new ForbiddenException(
         'Profile must be at least 50% complete to apply. Complete your profile first.',
@@ -50,7 +53,9 @@ export class ApplicationsService {
 
     const resumeUrl = dto.resumeUrl ?? profile.resumeUrl;
     if (!resumeUrl) {
-      throw new ForbiddenException('Resume is required. Add a resume to your profile or upload one.');
+      throw new ForbiddenException(
+        'Resume is required. Add a resume to your profile or upload one.',
+      );
     }
 
     const application = this.applicationRepository.create({
@@ -85,7 +90,11 @@ export class ApplicationsService {
 
   async findMyApplications(
     userId: string,
-    options: { status?: ApplicationStatus; limit?: number; offset?: number } = {},
+    options: {
+      status?: ApplicationStatus;
+      limit?: number;
+      offset?: number;
+    } = {},
   ): Promise<{ items: Application[]; total: number }> {
     const { status, limit = 20, offset = 0 } = options;
 
@@ -107,7 +116,10 @@ export class ApplicationsService {
     return { items, total };
   }
 
-  async findOneForApplicant(applicationId: string, userId: string): Promise<Application> {
+  async findOneForApplicant(
+    applicationId: string,
+    userId: string,
+  ): Promise<Application> {
     const application = await this.applicationRepository.findOne({
       where: { id: applicationId, user: { id: userId } },
       relations: ['job'],
@@ -151,32 +163,46 @@ export class ApplicationsService {
     });
   }
 
-  async getCanApply(jobId: string, userId: string): Promise<{ canApply: boolean; reason?: string }> {
+  async getCanApply(
+    jobId: string,
+    userId: string,
+  ): Promise<{ canApply: boolean; reason?: string }> {
     try {
       await this.jobsService.findOnePublished(jobId);
     } catch {
-      return { canApply: false, reason: 'Job not found or no longer accepting applications' };
+      return {
+        canApply: false,
+        reason: 'Job not found or no longer accepting applications',
+      };
     }
     const existing = await this.applicationRepository.findOne({
       where: { job: { id: jobId }, user: { id: userId } },
     });
     if (existing) {
-      return { canApply: false, reason: 'You have already applied to this job' };
+      return {
+        canApply: false,
+        reason: 'You have already applied to this job',
+      };
     }
     const user = await this.usersService.findById(userId);
     const profile = await this.profilesService.getOrCreateForUser(user);
-    const completeness = this.profilesService.completenessPercent(profile, user);
+    const completeness = this.profilesService.completenessPercent(
+      profile,
+      user,
+    );
     if (completeness < 50) {
       return {
         canApply: false,
-        reason: 'Profile must be at least 50% complete to apply. Complete your profile first.',
+        reason:
+          'Profile must be at least 50% complete to apply. Complete your profile first.',
       };
     }
     const resumeUrl = profile.resumeUrl;
     if (!resumeUrl) {
       return {
         canApply: false,
-        reason: 'Resume is required. Add a resume to your profile or upload one.',
+        reason:
+          'Resume is required. Add a resume to your profile or upload one.',
       };
     }
     return { canApply: true };
@@ -190,5 +216,72 @@ export class ApplicationsService {
       .where('a.userId = :userId', { userId })
       .getRawMany<{ jobId: string }>();
     return rows.map((r) => r.jobId);
+  }
+
+  // Employer methods
+
+  async findByJobForEmployer(
+    jobId: string,
+    employerId: string,
+    options: {
+      status?: ApplicationStatus;
+      limit?: number;
+      offset?: number;
+    } = {},
+  ): Promise<{ items: Application[]; total: number }> {
+    const { status, limit = 20, offset = 0 } = options;
+
+    const job = await this.jobsService.findOne(jobId);
+    // TODO: Verify employer ownership of the job
+    // if (job.organizationId !== employerOrgId) throw Forbidden
+
+    const qb = this.applicationRepository
+      .createQueryBuilder('a')
+      .leftJoinAndSelect('a.user', 'user')
+      .where('a.jobId = :jobId', { jobId });
+
+    if (status) {
+      qb.andWhere('a.status = :status', { status });
+    }
+
+    const [items, total] = await qb
+      .orderBy('a.createdAt', 'DESC')
+      .take(limit)
+      .skip(offset)
+      .getManyAndCount();
+
+    return { items, total };
+  }
+
+  async updateStatusByEmployer(
+    applicationId: string,
+    status: ApplicationStatus,
+    employerId: string,
+    reason?: string,
+  ): Promise<Application> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+      relations: ['job'],
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    // TODO: Verify employer ownership of the job
+
+    const fromStatus = application.status;
+    application.status = status;
+    const saved = await this.applicationRepository.save(application);
+
+    await this.recordStatusChange(
+      applicationId,
+      fromStatus,
+      status,
+      reason,
+      employerId,
+    );
+
+    return saved;
   }
 }

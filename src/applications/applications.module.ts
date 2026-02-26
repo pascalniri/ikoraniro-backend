@@ -7,16 +7,23 @@ import { ApplicationsController } from './applications.controller';
 import { JobsModule } from '../jobs/jobs.module';
 import { ProfilesModule } from '../profiles/profiles.module';
 import { UsersModule } from '../users/users.module';
+import { Interview } from './interview.entity';
+import { InterviewsService } from './interviews.service';
+import { InterviewsController } from './interviews.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Application, ApplicationStatusHistory]),
+    TypeOrmModule.forFeature([
+      Application,
+      ApplicationStatusHistory,
+      Interview,
+    ]),
     JobsModule,
     ProfilesModule,
     UsersModule,
   ],
-  providers: [ApplicationsService],
-  controllers: [ApplicationsController],
-  exports: [ApplicationsService, TypeOrmModule],
+  providers: [ApplicationsService, InterviewsService],
+  controllers: [ApplicationsController, InterviewsController],
+  exports: [ApplicationsService, InterviewsService, TypeOrmModule],
 })
 export class ApplicationsModule {}

@@ -65,4 +65,40 @@ export class ApplicationsController {
   ) {
     return this.applicationsService.withdraw(id, req.user.userId);
   }
+
+  // Employer Endpoints
+
+  @Get('employer/jobs/:jobId')
+  async getApplicantsForJob(
+    @Param('jobId') jobId: string,
+    @Req() req: { user: { userId: string } },
+    @Query('status') status?: ApplicationStatus,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.applicationsService.findByJobForEmployer(
+      jobId,
+      req.user.userId,
+      {
+        status,
+        limit: limit ? parseInt(limit, 10) : undefined,
+        offset: offset ? parseInt(offset, 10) : undefined,
+      },
+    );
+  }
+
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Req() req: { user: { userId: string } },
+    @Body('status') status: ApplicationStatus,
+    @Body('reason') reason?: string,
+  ) {
+    return this.applicationsService.updateStatusByEmployer(
+      id,
+      status,
+      req.user.userId,
+      reason,
+    );
+  }
 }
