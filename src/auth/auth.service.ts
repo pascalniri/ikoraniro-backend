@@ -11,7 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { OTP } from 'otplib';
 import * as toDataURL from 'qrcode';
-import { User, UserStatus } from '../users/user.entity';
+import { User, UserStatus, UserType } from '../users/user.entity';
 
 const otp = new OTP({ strategy: 'totp' });
 import { RefreshToken } from './refresh-token.entity';
@@ -19,6 +19,7 @@ import { RefreshToken } from './refresh-token.entity';
 export interface JwtPayload {
   sub: string;
   email: string;
+  type?: UserType;
   isTwoFactorAuthenticated?: boolean;
 }
 
@@ -110,6 +111,7 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
+      type: user.type,
       isTwoFactorAuthenticated: is2faAuthenticated,
     };
     const accessToken = this.getAccessToken(payload);
@@ -121,6 +123,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        type: user.type,
       },
     };
   }
